@@ -117,7 +117,7 @@ class ProgressInfo:
                 *unpacked[0:4], unpacked[4:10], unpacked[10]
         )
         (self.start_time, self.last_update, self.now_update) = map(
-            from_time_pair, (d_times[0:2], d_times[2:4], d_times[4:6])
+            lambda d:from_time_pair(*d), (d_times[0:2], d_times[2:4], d_times[4:6])
         )
         
 
