@@ -4,7 +4,7 @@ import argparse
 import subprocess
 import sys
 import shlex
-from mpprogress import mpprogress
+import mpprogress
 import mmap
 import threading
 import time
@@ -34,8 +34,6 @@ def server_read_sub(name):
 
 def server_main(name):
     print("サーバーです")
-    with open("dat/testdata.tmp", "wb") as fp:
-        pass
     provider = mpprogress.NameProvider()
     th = threading.Thread(target=server_read_sub, args=(name,), daemon=True)
     th.start()
