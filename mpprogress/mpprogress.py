@@ -127,7 +127,7 @@ class ProgressView:
         if not self.writable:
             raise ValueError("the view is not writable")
         with open(self.tempname_path, "r+b") as fp:
-            with mmap.mmap(fp.fileno(), progress.calc_byte_length()) as mm:
+            with mmap.mmap(fp.fileno(), 0) as mm:
                 mm.write(progress.dump_to_bytes())
 
     def initialize(self):
