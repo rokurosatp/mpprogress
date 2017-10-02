@@ -1,6 +1,7 @@
 """subprocess等で複数プロセスにまたがるプログラムを利用するときに進捗を伝達するためのライブラリ
 """
 import os
+import datetime
 import time
 import struct
 import mmap
@@ -9,6 +10,19 @@ import tempfile
 def get_temp_path(name):
     tempdir = tempfile.gettempdir()
     return os.path.join(tempdir, "mpprogress.{}.tmp".format(name))
+
+def timedelta_seconds(delta: datetime.timedelta):
+    return delta.seconds + delta.microseconds / 1000000
+
+def from_time_pair(ordinal: int, seconds: float):
+    dt = datetime.datetime.fromordinal(ordinal)
+    dt += datetime.timedelta(seconds=seconds)
+
+def to_time_pair(dt: datetime.datetime):
+    ordinal = dt.toordinal()
+    dt2 = datetime.datetime.fromordinal(ordinal)
+    seconds = timedelta_seconds(dt - dt2)
+    return (ordinal, seconds)
 
 class NameProvider:
     """一意な名前を設定するためのクラス
@@ -44,18 +58,18 @@ class ProgressInfo:
         self.min_value = 0
         self.max_value = 0
         self.count = 0
-        self.start_time = time.process_time()
-        self.last_update = time.process_time()
-        self.now_update = time.process_time()
+        self.start_time = datetime.datetime.now()
+        self.last_update = datetime.datetime.now()
+        self.now_update = datetime.datetime.now()
         self.update_time_average = 0.0
 
     def update_value(self, count):
         last_count = self.count
         self.last_update = self.now_update
         self.count = count
-        self.now_update = time.process_time()
+        self.now_update = datetime.datetime.now()
         proceed_count = self.count - last_count
-        time_diff = self.now_update - self.last_update
+        time_diff = self._get_time_diff()
         if proceed_count > 0:
             self.update_time_average += (time_diff / proceed_count - self.update_time_average) / self.count
 
@@ -63,7 +77,7 @@ class ProgressInfo:
         return self.count - self.min_value
 
     def _get_time_diff(self):
-        return self.now_update - self.last_update
+        return timedelta_seconds(self.now_update - self.last_update)
 
     def _get_percentage(self):
         return 100 * (self.count - self.min_value) / (self.max_value - self.min_value)
@@ -72,7 +86,7 @@ class ProgressInfo:
         return (self.max_value - self.count) * self.update_time_average
 
     def _get_elapsed(self):
-        return self.now_update - self.start_time
+        return timedelta_seconds(self.now_update - self.start_time)
 
     def _get_total(self):
         return self.max_value - self.min_value
@@ -80,10 +94,10 @@ class ProgressInfo:
     def dump_to_bytes(self):
         """バイナリデータに変換
         """
-        d_times = (self.start_time, self.last_update, self.now_update)
-        return struct.pack("@illl3dd",
+        d_times = tuple(map(to_time_pair, (self.start_time, self.last_update, self.now_update)))
+        return struct.pack("@illlidididd",
             self.closed, self.min_value, self.max_value, self.count,
-            *d_times, self.update_time_average
+            *d_times[0], *d_times[1], *d_times[2], self.update_time_average
         )
 
     def close(self):
@@ -92,17 +106,19 @@ class ProgressInfo:
     def calc_byte_length(self):
         """バイナリにダンプした際のサイズを取得
         """
-        return struct.calcsize("@illl3dd")
+        return struct.calcsize("@illlidididd")
 
     def load_from_bytes(self, buffer):
         """バイナリデータからロード
         """
-        unpacked = struct.unpack("@illl3dd", buffer)
+        unpacked = struct.unpack("@illlidididd", buffer)
         (self.closed, self.min_value, self.max_value,
             self.count, d_times, self.update_time_average) = (
-                *unpacked[0:4], unpacked[4:7], unpacked[7]
+                *unpacked[0:4], unpacked[4:10], unpacked[10]
         )
-        (self.start_time, self.last_update, self.now_update) = d_times
+        (self.start_time, self.last_update, self.now_update) = map(
+            from_time_pair, (d_times[0:2], d_times[2:4], d_times[4:6])
+        )
         
 
     elapsed = property(_get_elapsed)
