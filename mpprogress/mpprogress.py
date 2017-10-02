@@ -44,16 +44,16 @@ class ProgressInfo:
         self.min_value = 0
         self.max_value = 0
         self.count = 0
-        self.start_time = time.clock()
-        self.last_update = time.clock()
-        self.now_update = time.clock()
+        self.start_time = time.process_time()
+        self.last_update = time.process_time()
+        self.now_update = time.process_time()
         self.update_time_average = 0.0
 
     def update_value(self, count):
         last_count = self.count
         self.last_update = self.now_update
         self.count = count
-        self.now_update = time.clock()
+        self.now_update = time.process_time()
         proceed_count = self.count - last_count
         time_diff = self.now_update - self.last_update
         if proceed_count > 0:
