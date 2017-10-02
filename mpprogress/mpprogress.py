@@ -116,7 +116,7 @@ class ProgressView:
     """メモリマップファイルを利用した進捗内容の共有インタフェース
     書き込みを行うインタフェースにはwritableを設定しておく
     """
-    def __init__(self, name, writable=True):
+    def __init__(self, name, writable=False):
         self.name = name
         self.tempname_path = get_temp_path(self.name)
         self.writable = writable
@@ -132,7 +132,8 @@ class ProgressView:
 
     def initialize(self):
         with open(self.tempname_path, "wb") as fp:
-            pass
+            for i in range(ProgressInfo().calc_byte_length()):
+                fp.write(b" ")
 
     def delete(self):
         if not self.writable:
@@ -140,7 +141,7 @@ class ProgressView:
         os.remove(self.tempname_path)
 
     def __enter__(self):
-        pass
+        return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         if self.writable:
@@ -194,10 +195,9 @@ class MultiprocessedProgress(ProgressBase):
         self.info.close()
 
     def __enter__(self):
-        pass
+        return self
     
     def __exit__(self, exc_type, exc_value, traceback):
-        self.interface.delete()
-        self.info.close()
+        self.finish()
 
 main_name_provider = NameProvider()
